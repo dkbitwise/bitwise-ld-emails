@@ -204,15 +204,45 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 		}
 
 		public function setup_emails() {
-			$point_sql     = "SELECT * from " . $this->table_prefix . 'points_leader' . " ORDER BY `id` ASC";
-			$point_results = $this->bit_conn->query( $point_sql );
-			echo "<pre>";
-			print_r( $point_results );
+			//$point_sql  = "SELECT * from " . $this->table_prefix . 'points_leader' . " ORDER BY `id` ASC";
+			$beginOfDay = strtotime( "today" );
+			$endOfDay   = strtotime( "tomorrow", $beginOfDay ) - 1;
 
-			if ( $point_results->num_rows > 0 ) {
-				$point_rank = 1;
+			$user_sql = "SELECT `user_id` as student_id, `meta_key` as course_key, `meta_value` as completed_time from " . $this->table_prefix . 'usermeta' . " WHERE `meta_key` LIKE '%course_completed_%' AND `meta_value` BETWEEN  '$beginOfDay' AND '$endOfDay'";
+			echo '<br>' . $user_sql;
+			$user_results = $this->bit_conn->query( $user_sql );
+			echo '<br>' . $this->bit_conn->error;
+			echo "<pre>User Results";
+			print_r( $user_results );
+
+			if ( $user_results->num_rows > 0 ) {
+				while ( $row = $user_results->fetch_array() ) {
+					$student_id = isset( $row['student_id'] ) ? $row['student_id'] : 0;
+					$course_id  = str_replace( 'course_completed_', '', $row['course_key'] );
+					echo '<br>Student_id: ' . $student_id;
+					if ( $student_id > 0 ) {
+						$student_sql = "SELECT `meta_value` from " . $this->table_prefix . 'usermeta' . " WHERE `meta_key` IN ('first_name','last_name') AND `user_id`=$student_id";
+						echo $student_sql;
+						$student_results = $this->bit_conn->query( $student_sql );
+						print_r( $student_results );
+						if ( $student_results->num_rows > 0 ) {
+							while ( $student_row = $student_results->fetch_assoc() ) {
+								print_r( $student_row );
+							}
+						}
+
+						$this->set_student_id( $student_id );
+						$this->set_student_first_name();
+						$this->set_event_id( $course_id );
+						$this->set_creation_time( $row['completed_time'] );
+						$this->set_sent_time( 0 );
+						//$this->save();
+					}
+				}
+			}
+
+			/*if ( $point_results->num_rows > 0 ) {
 				while ( $row = $point_results->fetch_assoc() ) {
-					//print_r($row);
 					if ( 'course_completed' === $row['last_event'] ) {
 						$this->set_student_id( $row['student_id'] );
 						$this->set_student_first_name( $row['student_first_name'] );
@@ -229,7 +259,7 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 						$this->save();
 					}
 				}
-			}
+			}*/
 		}
 
 
