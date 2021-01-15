@@ -15,6 +15,7 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 		private $parent_first_name = '';
 		private $parent_last_name = '';
 		private $parent_email = '';
+		private $course_id = 0;
 		private $event_id = 0;
 		private $trigger_type = '';
 		private $creation_time = 0;
@@ -80,6 +81,10 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 			$this->parent_email = $parent_email;
 		}
 
+		public function set_course_id( $course_id ) {
+			$this->course_id = $course_id;
+		}
+
 		public function set_event_id( $event_id ) {
 			$this->event_id = $event_id;
 		}
@@ -132,6 +137,10 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 			return $this->parent_email;
 		}
 
+		public function get_course_id() {
+			return $this->course_id;
+		}
+
 		public function get_event_id() {
 			return $this->event_id;
 		}
@@ -164,6 +173,7 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 			$data['parent_first_name']  = empty( $this->get_parent_first_name() ) ? 'NA' : $this->get_parent_first_name();
 			$data['parent_last_name']   = $this->get_parent_last_name();
 			$data['parent_email']       = $this->get_parent_email();
+			$data['course_id']          = $this->get_course_id();
 			$data['event_id']           = empty( $this->get_event_id() ) ? 0 : $this->get_event_id();
 			$data['trigger_type']       = $this->get_trigger_type();
 			$data['creation_time']      = $this->get_creation_time();
@@ -171,13 +181,25 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 
 			if ( $this->bit_conn instanceof mysqli ) {
 
-				$columns        = implode( ", ", array_keys( $data ) );
-				$escaped_values = array_values( $data );
-				$values         = implode( ", ", $escaped_values );
-				$table_name     = $this->table_prefix . $this->table_name;
-				$final_sql      = "INSERT INTO `$table_name` ($columns) VALUES ($values)";
 
-				echo $final_sql;
+				$columns = implode( ", ", array_keys( $data ) );
+				$values  = array_values( $data );
+				//$values  = implode("', '", $escaped_values);
+				$final_values = '';
+				$count = count($values);
+
+				foreach ( $values as $key => $value ) {
+
+					$final_values .= "'" . $value . "'";
+					if ($key < $count-1){
+						$final_values .= ",";
+					}
+				}
+				echo '<br>' . $values . '<br>';
+				$table_name = $this->table_prefix . $this->table_name;
+				$final_sql  = "INSERT INTO `$table_name` ($columns) VALUES ( $final_values)";
+
+				echo '<br>' . $final_sql . '<br>';
 
 				$this->bit_conn->query( $final_sql );
 				$message = "Inserted data for student id: $student_id";
@@ -204,7 +226,6 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 		}
 
 		public function setup_emails() {
-			//$point_sql  = "SELECT * from " . $this->table_prefix . 'points_leader' . " ORDER BY `id` ASC";
 			$beginOfDay = strtotime( "today" );
 			$endOfDay   = strtotime( "tomorrow", $beginOfDay ) - 1;
 
@@ -212,56 +233,112 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 			echo '<br>' . $user_sql;
 			$user_results = $this->bit_conn->query( $user_sql );
 			echo '<br>' . $this->bit_conn->error;
-			echo "<pre>User Results";
+			echo ",<br><pre>User Results: <br>";
 			print_r( $user_results );
 
 			if ( $user_results->num_rows > 0 ) {
+				$first_name   = $last_name = $parent_first_name = $parent_last_name = $student_email = $parent_email = '';
+				$group_id     = $parent_id = $course_id = 0;
+				$trigger_type = 'course_completed';
 				while ( $row = $user_results->fetch_array() ) {
 					$student_id = isset( $row['student_id'] ) ? $row['student_id'] : 0;
 					$course_id  = str_replace( 'course_completed_', '', $row['course_key'] );
 					echo '<br>Student_id: ' . $student_id;
 					if ( $student_id > 0 ) {
-						$student_sql = "SELECT `meta_value` from " . $this->table_prefix . 'usermeta' . " WHERE `meta_key` IN ('first_name','last_name') AND `user_id`=$student_id";
-						echo $student_sql;
+						$student_sql = "SELECT `meta_key`, `meta_value` from " . $this->table_prefix . 'usermeta' . " WHERE `meta_key` IN ('first_name','last_name') AND `user_id`=$student_id";
+						echo '<br>' . $student_sql . '<br>';
 						$student_results = $this->bit_conn->query( $student_sql );
 						print_r( $student_results );
 						if ( $student_results->num_rows > 0 ) {
 							while ( $student_row = $student_results->fetch_assoc() ) {
-								print_r( $student_row );
+								$first_name = ( 'first_name' === $student_row['meta_key'] ) ? $student_row['meta_value'] : $first_name;
+								$last_name  = ( 'last_name' === $student_row['meta_key'] ) ? $student_row['meta_value'] : $last_name;
 							}
-						}
 
-						$this->set_student_id( $student_id );
-						$this->set_student_first_name();
-						$this->set_event_id( $course_id );
-						$this->set_creation_time( $row['completed_time'] );
-						$this->set_sent_time( 0 );
-						//$this->save();
+							$student_email_sql = "SELECT `user_email` as student_email from " . $this->table_prefix . 'users' . " WHERE `ID`=$student_id";
+							echo '<br>' . $student_email_sql . '<br>';
+							$student_email_result = $this->bit_conn->query( $student_email_sql );
+							print_r( $student_email_result );
+							if ( $student_email_result->num_rows > 0 ) {
+								while ( $email_row = $student_email_result->fetch_assoc() ) {
+									$student_email = isset( $email_row['student_email'] ) ? $email_row['student_email'] : $student_email;
+								}
+							}
+
+							$group_id_sql = "SELECT `meta_value` as group_id from " . $this->table_prefix . 'usermeta' . " WHERE `meta_key` LIKE '%learndash_group_users_%' AND `user_id`=$student_id";
+							echo '<br>' . $group_id_sql;
+							$group_id_result = $this->bit_conn->query( $group_id_sql );
+							print_r( $group_id_result );
+							$group_id = 0;
+							if ( $group_id_result->num_rows > 0 ) {
+								while ( $group_row = $group_id_result->fetch_assoc() ) {
+									$group_id = isset( $group_row['group_id'] ) ? $group_row['group_id'] : $group_id;
+								}
+								if ( $group_id > 0 ) {
+									$parent_id_sql = "SELECT `user_id` as parent_id from " . $this->table_prefix . 'usermeta' . " WHERE `meta_key` LIKE '%learndash_group_leaders_$group_id%'";
+									echo '<br>' . $parent_id_sql . '<br>';
+									$parent_id_result = $this->bit_conn->query( $parent_id_sql );
+									print_r( $parent_id_result );
+									if ( $parent_id_result->num_rows > 0 ) {
+										while ( $parent_row = $parent_id_result->fetch_assoc() ) {
+											$parent_id = isset( $parent_row['parent_id'] ) ? $parent_row['parent_id'] : $parent_id;
+										}
+
+										if ( $parent_id > 0 ) {
+											$parent_sql = "SELECT `meta_key`, `meta_value` from " . $this->table_prefix . 'usermeta' . " WHERE `meta_key` IN ('first_name','last_name') AND `user_id`=$parent_id";
+											echo '<br>' . $parent_sql . '<br>';
+											$parent_results = $this->bit_conn->query( $parent_sql );
+											print_r( $parent_results );
+											if ( $parent_results->num_rows > 0 ) {
+												while ( $parent_row = $parent_results->fetch_assoc() ) {
+													$parent_first_name = ( 'first_name' === $parent_row['meta_key'] ) ? $parent_row['meta_value'] : $first_name;
+													$parent_last_name  = ( 'last_name' === $parent_row['meta_key'] ) ? $parent_row['meta_value'] : $last_name;
+												}
+											}
+
+											$parent_email_sql = "SELECT `user_email` as parent_email from " . $this->table_prefix . 'users' . " WHERE `ID`=$parent_id";
+											echo '<br>' . $parent_email_sql . '<br>';
+											$parent_email_result = $this->bit_conn->query( $parent_email_sql );
+											print_r( $parent_email_result );
+											if ( $parent_email_result->num_rows > 0 ) {
+												while ( $email_row = $parent_email_result->fetch_assoc() ) {
+													$parent_email = isset( $email_row['parent_email'] ) ? $email_row['parent_email'] : $parent_email;
+												}
+											}
+										}
+									}
+								}
+							}
+
+							echo '<br>Student id: ' . $student_id;
+							echo '<br>Student first name: ' . $first_name;
+							echo '<br>Student last name: ' . $last_name;
+							echo '<br>Student email: ' . $student_email;
+							echo '<br>Parent id: ' . $parent_id;
+							echo '<br>Group id: ' . $group_id;
+							echo '<br>Parent first name: ' . $parent_first_name;
+							echo '<br>Parent last name: ' . $parent_last_name;
+							echo '<br>Parent email: ' . $parent_email;
+
+							$this->set_student_id( $student_id );
+							$this->set_student_first_name( $first_name );
+							$this->set_student_last_name( $last_name );
+							$this->set_student_email( $student_email );
+							$this->set_parent_id( $parent_id );
+							$this->set_parent_first_name( $parent_first_name );
+							$this->set_parent_last_name( $parent_last_name );
+							$this->set_parent_email( $parent_email );
+							$this->set_course_id( $course_id );
+							$this->set_event_id( $course_id );
+							$this->set_trigger_type( $trigger_type );
+							$this->set_creation_time( $row['completed_time'] );
+							$this->set_sent_time( 0 );
+							$this->save();
+						}
 					}
 				}
 			}
-
-			/*if ( $point_results->num_rows > 0 ) {
-				while ( $row = $point_results->fetch_assoc() ) {
-					if ( 'course_completed' === $row['last_event'] ) {
-						$this->set_student_id( $row['student_id'] );
-						$this->set_student_first_name( $row['student_first_name'] );
-						$this->set_student_last_name( $row['student_last_name'] );
-						$this->set_student_email( $row['student_email'] );
-						$this->set_parent_id( $row['parent_id'] );
-						$this->set_parent_first_name( $row['parent_first_name'] );
-						$this->set_parent_last_name( $row['parent_last_name'] );
-						$this->set_parent_email( $row['parent_email'] );
-						$this->set_event_id( $row['last_event_id'] );
-						$this->set_trigger_type( $row['last_event'] );
-						$this->set_creation_time( $row['last_added'] );
-						$this->set_sent_time( 0 );
-						$this->save();
-					}
-				}
-			}*/
 		}
-
 
 		public function create_table() {
 			$collate = "DEFAULT CHARACTER SET utf8";
