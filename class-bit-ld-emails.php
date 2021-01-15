@@ -184,22 +184,16 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 
 				$columns = implode( ", ", array_keys( $data ) );
 				$values  = array_values( $data );
-				//$values  = implode("', '", $escaped_values);
 				$final_values = '';
 				$count = count($values);
-
 				foreach ( $values as $key => $value ) {
-
 					$final_values .= "'" . $value . "'";
 					if ($key < $count-1){
 						$final_values .= ",";
 					}
 				}
-				echo '<br>' . $values . '<br>';
 				$table_name = $this->table_prefix . $this->table_name;
 				$final_sql  = "INSERT INTO `$table_name` ($columns) VALUES ( $final_values)";
-
-				echo '<br>' . $final_sql . '<br>';
 
 				$this->bit_conn->query( $final_sql );
 				$message = "Inserted data for student id: $student_id";
@@ -230,11 +224,7 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 			$endOfDay   = strtotime( "tomorrow", $beginOfDay ) - 1;
 
 			$user_sql = "SELECT `user_id` as student_id, `meta_key` as course_key, `meta_value` as completed_time from " . $this->table_prefix . 'usermeta' . " WHERE `meta_key` LIKE '%course_completed_%' AND `meta_value` BETWEEN  '$beginOfDay' AND '$endOfDay'";
-			echo '<br>' . $user_sql;
 			$user_results = $this->bit_conn->query( $user_sql );
-			echo '<br>' . $this->bit_conn->error;
-			echo ",<br><pre>User Results: <br>";
-			print_r( $user_results );
 
 			if ( $user_results->num_rows > 0 ) {
 				$first_name   = $last_name = $parent_first_name = $parent_last_name = $student_email = $parent_email = '';
@@ -243,12 +233,9 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 				while ( $row = $user_results->fetch_array() ) {
 					$student_id = isset( $row['student_id'] ) ? $row['student_id'] : 0;
 					$course_id  = str_replace( 'course_completed_', '', $row['course_key'] );
-					echo '<br>Student_id: ' . $student_id;
 					if ( $student_id > 0 ) {
 						$student_sql = "SELECT `meta_key`, `meta_value` from " . $this->table_prefix . 'usermeta' . " WHERE `meta_key` IN ('first_name','last_name') AND `user_id`=$student_id";
-						echo '<br>' . $student_sql . '<br>';
 						$student_results = $this->bit_conn->query( $student_sql );
-						print_r( $student_results );
 						if ( $student_results->num_rows > 0 ) {
 							while ( $student_row = $student_results->fetch_assoc() ) {
 								$first_name = ( 'first_name' === $student_row['meta_key'] ) ? $student_row['meta_value'] : $first_name;
@@ -256,9 +243,7 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 							}
 
 							$student_email_sql = "SELECT `user_email` as student_email from " . $this->table_prefix . 'users' . " WHERE `ID`=$student_id";
-							echo '<br>' . $student_email_sql . '<br>';
 							$student_email_result = $this->bit_conn->query( $student_email_sql );
-							print_r( $student_email_result );
 							if ( $student_email_result->num_rows > 0 ) {
 								while ( $email_row = $student_email_result->fetch_assoc() ) {
 									$student_email = isset( $email_row['student_email'] ) ? $email_row['student_email'] : $student_email;
@@ -266,9 +251,7 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 							}
 
 							$group_id_sql = "SELECT `meta_value` as group_id from " . $this->table_prefix . 'usermeta' . " WHERE `meta_key` LIKE '%learndash_group_users_%' AND `user_id`=$student_id";
-							echo '<br>' . $group_id_sql;
 							$group_id_result = $this->bit_conn->query( $group_id_sql );
-							print_r( $group_id_result );
 							$group_id = 0;
 							if ( $group_id_result->num_rows > 0 ) {
 								while ( $group_row = $group_id_result->fetch_assoc() ) {
@@ -276,9 +259,7 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 								}
 								if ( $group_id > 0 ) {
 									$parent_id_sql = "SELECT `user_id` as parent_id from " . $this->table_prefix . 'usermeta' . " WHERE `meta_key` LIKE '%learndash_group_leaders_$group_id%'";
-									echo '<br>' . $parent_id_sql . '<br>';
 									$parent_id_result = $this->bit_conn->query( $parent_id_sql );
-									print_r( $parent_id_result );
 									if ( $parent_id_result->num_rows > 0 ) {
 										while ( $parent_row = $parent_id_result->fetch_assoc() ) {
 											$parent_id = isset( $parent_row['parent_id'] ) ? $parent_row['parent_id'] : $parent_id;
@@ -286,9 +267,7 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 
 										if ( $parent_id > 0 ) {
 											$parent_sql = "SELECT `meta_key`, `meta_value` from " . $this->table_prefix . 'usermeta' . " WHERE `meta_key` IN ('first_name','last_name') AND `user_id`=$parent_id";
-											echo '<br>' . $parent_sql . '<br>';
 											$parent_results = $this->bit_conn->query( $parent_sql );
-											print_r( $parent_results );
 											if ( $parent_results->num_rows > 0 ) {
 												while ( $parent_row = $parent_results->fetch_assoc() ) {
 													$parent_first_name = ( 'first_name' === $parent_row['meta_key'] ) ? $parent_row['meta_value'] : $first_name;
@@ -297,9 +276,7 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 											}
 
 											$parent_email_sql = "SELECT `user_email` as parent_email from " . $this->table_prefix . 'users' . " WHERE `ID`=$parent_id";
-											echo '<br>' . $parent_email_sql . '<br>';
 											$parent_email_result = $this->bit_conn->query( $parent_email_sql );
-											print_r( $parent_email_result );
 											if ( $parent_email_result->num_rows > 0 ) {
 												while ( $email_row = $parent_email_result->fetch_assoc() ) {
 													$parent_email = isset( $email_row['parent_email'] ) ? $email_row['parent_email'] : $parent_email;
@@ -309,16 +286,6 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 									}
 								}
 							}
-
-							echo '<br>Student id: ' . $student_id;
-							echo '<br>Student first name: ' . $first_name;
-							echo '<br>Student last name: ' . $last_name;
-							echo '<br>Student email: ' . $student_email;
-							echo '<br>Parent id: ' . $parent_id;
-							echo '<br>Group id: ' . $group_id;
-							echo '<br>Parent first name: ' . $parent_first_name;
-							echo '<br>Parent last name: ' . $parent_last_name;
-							echo '<br>Parent email: ' . $parent_email;
 
 							$this->set_student_id( $student_id );
 							$this->set_student_first_name( $first_name );
