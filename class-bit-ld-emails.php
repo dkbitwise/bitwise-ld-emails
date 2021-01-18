@@ -284,7 +284,7 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 		}
 
 		/**
-		 * Save the email triggers
+		 * Save the email triggers, insert a row in the custom table.
 		 *
 		 * @param array $setData
 		 */
@@ -363,6 +363,8 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 		}
 
 		/**
+		 * Setting up an email trigger for course completed
+		 *
 		 * @param $trigger_type
 		 */
 		public function setup_emails_course_completed( $trigger_type ) {
@@ -385,6 +387,8 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 		}
 
 		/**
+		 * Setting up an email for student inactivity for last 15 days
+		 *
 		 * @param $trigger_type
 		 */
 		public function setup_emails_inactive_student( $trigger_type ) {
@@ -404,6 +408,8 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 		}
 
 		/**
+		 * Setting up different column values for email triggers
+		 *
 		 * @param $student_id
 		 * @param $event_id
 		 * @param $trigger
@@ -431,6 +437,8 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 		}
 
 		/**
+		 * Getting student details like first name, last name and emails.
+		 *
 		 * @param $student_id
 		 *
 		 * @return array
@@ -462,6 +470,7 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 		}
 
 		/**
+		 * Getting parent details like parent id, first name, last name and emails.
 		 * @param $student_id
 		 *
 		 * @return array
