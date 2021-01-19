@@ -25,6 +25,8 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 		private $table_name = '';
 		private $table_prefix = '';
 
+		private $email_tracing;
+
 		/**
 		 * Bit_LD_Emails constructor.
 		 */
@@ -32,6 +34,12 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 			$this->table_prefix = 'bit_';
 			$this->table_name   = 'ld_email_triggers';
 			$this->bit_conn     = $this->get_connection();
+
+			if ( ! class_exists( 'Bit_LD_Email_Tracing' ) ) {
+				require_once __DIR__ . '/class-bit-email-tracing.php';
+				$this->email_tracing = Bit_LD_Email_Tracing::get_instance();
+				$this->email_tracing->create_table( $this->bit_conn );
+			}
 		}
 
 		/**
@@ -325,13 +333,15 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 				$final_sql  = "INSERT INTO `$table_name` ($columns) VALUES ( $final_values)";
 
 				$this->bit_conn->query( $final_sql );
-				$message = "Inserted data for student id: $student_id";
+				$message = "<br>Inserted data for student id: $student_id in the table: $table_name<br>";
 
 				echo "<br>" . $message;
 
 				if ( ! empty( $this->bit_conn->error ) ) {
 					echo '<br>Error: ';
 					print_r( $this->bit_conn->error );
+				} elseif ( 'inactive_student' === $data['trigger_type'] ) {
+					$this->email_tracing->record_trace( $data );
 				}
 			}
 		}
@@ -368,6 +378,7 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 		 * @param $trigger_type
 		 */
 		public function setup_emails_course_completed( $trigger_type ) {
+			return;
 			$beginOfDay = strtotime( "today" );
 			$endOfDay   = strtotime( "tomorrow", $beginOfDay ) - 1;
 
@@ -392,15 +403,15 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 		 * @param $trigger_type
 		 */
 		public function setup_emails_inactive_student( $trigger_type ) {
-			$two_weeks_age = strtotime( "-14 days" );
-			$user_sql      = "SELECT `user_id` as student_id, `meta_value` as login_time from " . $this->table_prefix . 'usermeta' . " WHERE `meta_key` = 'learndash-last-login' AND `meta_value` < '$two_weeks_age' AND `user_id` IN (SELECT `user_id` from " . $this->table_prefix . 'usermeta' . " WHERE `meta_key` = 'bit_capabilities' AND (`meta_value` LIKE '%subscriber%' OR `meta_value` LIKE '%student%'))";
+			$two_weeks_ago = strtotime( "-14 days" );
+			$user_sql      = "SELECT `user_id` as student_id, `meta_value` as login_time from " . $this->table_prefix . 'usermeta' . " WHERE `meta_key` = 'learndash-last-login' AND `meta_value` < '$two_weeks_ago' AND `user_id` IN (SELECT `user_id` from " . $this->table_prefix . 'usermeta' . " WHERE `meta_key` = 'bit_capabilities' AND (`meta_value` LIKE '%subscriber%' OR `meta_value` LIKE '%student%'))";
 			$user_results  = $this->bit_conn->query( $user_sql );
 			if ( $user_results->num_rows > 0 ) {
 				$mail_priority = 1;
 				while ( $row = $user_results->fetch_array() ) {
 					$student_id     = isset( $row['student_id'] ) ? $row['student_id'] : 0;
 					$completed_time = $row['login_time'];
-					if ( $student_id > 0 ) {
+					if ( $student_id > 0 && $this->email_tracing->need_to_record( $student_id ) ) {
 						$this->setup_email_triggers( $student_id, 0, $trigger_type, $mail_priority, $completed_time );
 					}
 				}
@@ -471,6 +482,7 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 
 		/**
 		 * Getting parent details like parent id, first name, last name and emails.
+		 *
 		 * @param $student_id
 		 *
 		 * @return array
@@ -548,12 +560,16 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
                 ) " . $collate . ";";
 
 			$result = $this->bit_conn->query( $sql );
-			echo "Table created: ";
-			print_r( $result );
+			echo "<br>Table $this->table_name has been created. </br>";
+			if ( ! $result ) {
+				echo "Error in the table $this->table_name creation: ";
+				print_r( $result );
+			}
 		}
 	}
 
 	$bit_ld_emails = Bit_LD_Emails::get_instance();
+
 	$bit_ld_emails->create_table();
 	$bit_ld_emails->setup_emails();
 }
