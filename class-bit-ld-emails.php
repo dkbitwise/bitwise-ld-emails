@@ -378,7 +378,6 @@ if ( ! class_exists( 'Bit_LD_Emails' ) ) {
 		 * @param $trigger_type
 		 */
 		public function setup_emails_course_completed( $trigger_type ) {
-			return;
 			$beginOfDay = strtotime( "today" );
 			$endOfDay   = strtotime( "tomorrow", $beginOfDay ) - 1;
 
